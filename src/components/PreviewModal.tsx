@@ -7,10 +7,13 @@ interface PreviewModalProps {
     isOpen: boolean;
     onClose: () => void;
     policies: Policy[];
+    defaultMapFrom?: string;
+    defaultMapTo?: string;
 }
 
-export function PreviewModal({ isOpen, onClose, policies }: PreviewModalProps) {
+export function PreviewModal({ isOpen, onClose, policies, defaultMapFrom = '198.120', defaultMapTo = '198.121' }: PreviewModalProps) {
     const [confirmed, setConfirmed] = useState(false);
+    // Removed local state mapping logic
 
     // Reset confirmed when opening
     useMemo(() => {
@@ -22,11 +25,12 @@ export function PreviewModal({ isOpen, onClose, policies }: PreviewModalProps) {
 
     const content = useMemo(() => {
         if (isLarge && !confirmed) return "";
-        return generateTxtFromPolicies(policies);
-    }, [policies, isLarge, confirmed]);
+        return generateTxtFromPolicies(policies, { fromPrefix: defaultMapFrom, toPrefix: defaultMapTo });
+    }, [policies, isLarge, confirmed, defaultMapFrom, defaultMapTo]);
 
     if (!isOpen) return null;
 
+    // ... handleDownload, handleCopy ...
     const handleDownload = () => {
         if (!content) return;
         const blob = new Blob([content], { type: 'text/plain' });
@@ -55,6 +59,8 @@ export function PreviewModal({ isOpen, onClose, policies }: PreviewModalProps) {
                         <X className="h-5 w-5" />
                     </button>
                 </div>
+
+                {/* Mapping Config Bar Removed as per user request */}
 
                 <div className="relative flex-1 bg-gray-50 p-6">
                     {isLarge && !confirmed ? (

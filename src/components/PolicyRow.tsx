@@ -12,9 +12,10 @@ interface PolicyRowProps {
     isChecked: boolean;
     onToggleCheck: () => void;
     externalErrors?: string[];   // New optional prop
+    defaultIpPrefix?: string;
 }
 
-export function PolicyRow({ policy, onUpdate, onDelete, isChecked, onToggleCheck, externalErrors = [] }: PolicyRowProps) {
+export function PolicyRow({ policy, onUpdate, onDelete, isChecked, onToggleCheck, externalErrors = [], defaultIpPrefix }: PolicyRowProps) {
     const [modalType, setModalType] = useState<'ip' | 'port' | null>(null);
 
     // Combine local and external errors for display
@@ -66,20 +67,22 @@ export function PolicyRow({ policy, onUpdate, onDelete, isChecked, onToggleCheck
     // ... logic ...
 
     const handleIpChange = (newIps: string[]) => {
-        const { isValid, errors } = validatePolicy(newIps, policy.portObjects);
+        const sortedIps = [...newIps].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        const { isValid, errors } = validatePolicy(sortedIps, policy.portObjects);
         onUpdate({
             ...policy,
-            ipObjects: newIps,
+            ipObjects: sortedIps,
             isValid,
             validationErrors: errors
         });
     };
 
     const handlePortChange = (newPorts: string[]) => {
-        const { isValid, errors } = validatePolicy(policy.ipObjects, newPorts);
+        const sortedPorts = [...newPorts].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        const { isValid, errors } = validatePolicy(policy.ipObjects, sortedPorts);
         onUpdate({
             ...policy,
-            portObjects: newPorts,
+            portObjects: sortedPorts,
             isValid,
             validationErrors: errors
         });
@@ -127,6 +130,25 @@ export function PolicyRow({ policy, onUpdate, onDelete, isChecked, onToggleCheck
                         <option value="tcp">TCP</option>
                         <option value="udp">UDP</option>
                     </select>
+                </td>
+                <td className="p-4 text-center">
+                    <button
+                        onClick={() => onUpdate({ ...policy, enableDualPlane: !policy.enableDualPlane })}
+                        type="button"
+                        className={cn(
+                            "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-600 focus:ring-offset-2",
+                            policy.enableDualPlane ? "bg-purple-600" : "bg-gray-200"
+                        )}
+                        title={policy.enableDualPlane ? "A/B Dual Plane Enabled (Auto 198.121)" : "Enable A/B Dual Plane"}
+                    >
+                        <span
+                            aria-hidden="true"
+                            className={cn(
+                                "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                                policy.enableDualPlane ? "translate-x-4" : "translate-x-0"
+                            )}
+                        />
+                    </button>
                 </td>
                 <td className="p-4">
                     <button
@@ -198,6 +220,9 @@ export function PolicyRow({ policy, onUpdate, onDelete, isChecked, onToggleCheck
                 onChange={handleIpChange}
                 placeholder="192.168.1.1, 10.0.0.0/24, or 1.1.1.1-1.1.1.5"
                 validate={validateIp}
+                storageKey="presets_ip"
+                defaultIpPrefix={defaultIpPrefix}
+                variant="ip-advanced"
             />
 
             <MultiInputModal
@@ -214,6 +239,7 @@ export function PolicyRow({ policy, onUpdate, onDelete, isChecked, onToggleCheck
                     const parts = val.split('-').map(Number);
                     return parts.every(p => p >= 0 && p <= 65535);
                 }}
+                storageKey="presets_port"
             />
         </>
     );

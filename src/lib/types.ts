@@ -6,6 +6,7 @@ export interface Policy {
     portObjects: string[];
     isValid: boolean;
     validationErrors: string[];
+    enableDualPlane?: boolean; // New field for v1.1 AB Network support
 }
 
 export interface CommonPort {

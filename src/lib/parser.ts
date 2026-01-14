@@ -1,5 +1,5 @@
 import type { Policy } from './types';
-import { normalizeIpInput } from './ip-utils';
+import { normalizeIpInput, getDualPlaneIp } from './ip-utils';
 
 // Simple ID generator to avoid adding deps if not needed, or I can just use crypto.randomUUID
 function generateId(): string {
@@ -36,7 +36,8 @@ export function parseTxtToPolicies(txt: string): Policy[] {
                 ipObjects: [],
                 portObjects: [],
                 isValid: true,
-                validationErrors: []
+                validationErrors: [],
+                enableDualPlane: false // Default to false when parsing
             });
         }
 
@@ -56,11 +57,14 @@ export function parseTxtToPolicies(txt: string): Policy[] {
     return Array.from(policyMap.values());
 }
 
-export function generateTxtFromPolicies(policies: Policy[]): string {
+export function generateTxtFromPolicies(
+    policies: Policy[],
+    dualPlaneConfig: { fromPrefix: string; toPrefix: string } = { fromPrefix: '198.120', toPrefix: '198.121' }
+): string {
     const lines: string[] = [];
 
     for (const policy of policies) {
-        if (!policy.isValid) continue; // Skip invalid policies or maybe include them commented out? For now skip.
+        if (!policy.isValid) continue;
 
         const expandedIps: string[] = [];
 
@@ -77,15 +81,28 @@ export function generateTxtFromPolicies(policies: Policy[]): string {
                 });
             } catch (err) {
                 console.error(`Error processing IP ${ipObj} in policy ${policy.description}:`, err);
-                // Continue best effort
             }
         }
 
         // Cartesian Product
         for (const ipRes of expandedIps) {
             for (const portObj of policy.portObjects) {
-                // Description Protocol 0 0 IP Port
+                // Plane A Output
                 lines.push(`${policy.description} ${policy.protocol} 0 0 ${ipRes} ${portObj}`);
+
+                // Plane B Output (Interleaved)
+                if (policy.enableDualPlane) {
+                    let ipResB = "";
+                    const { fromPrefix, toPrefix } = dualPlaneConfig;
+                    if (ipRes.includes('-')) {
+                        const [s, e] = ipRes.split('-');
+                        ipResB = `${getDualPlaneIp(s, fromPrefix, toPrefix)}-${getDualPlaneIp(e, fromPrefix, toPrefix)}`;
+                    } else {
+                        ipResB = getDualPlaneIp(ipRes, fromPrefix, toPrefix);
+                    }
+                    // Keep same description as requested
+                    lines.push(`${policy.description} ${policy.protocol} 0 0 ${ipResB} ${portObj}`);
+                }
             }
         }
     }
@@ -96,18 +113,23 @@ export function generateTxtFromPolicies(policies: Policy[]): string {
 export function estimateLineCount(policies: Policy[]): number {
     let count = 0;
     for (const policy of policies) {
-        // This is an estimation, exact splitting might vary slightly based on actual calculation but this should be close
         let totalIpChunks = 0;
         for (const ipObj of policy.ipObjects) {
             try {
-                const chunks = normalizeIpInput(ipObj); // This actually runs the splitting logic, so it's accurate
+                const chunks = normalizeIpInput(ipObj);
                 totalIpChunks += chunks.length;
             } catch {
-                totalIpChunks += 1; // Fallback
+                totalIpChunks += 1;
             }
         }
         const totalPorts = policy.portObjects.length;
-        count += (totalIpChunks * totalPorts);
+        let policyLines = (totalIpChunks * totalPorts);
+
+        if (policy.enableDualPlane) {
+            policyLines *= 2;
+        }
+
+        count += policyLines;
     }
     return count;
 }

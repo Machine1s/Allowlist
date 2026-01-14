@@ -2,15 +2,30 @@ import { PolicyRow } from './PolicyRow';
 import { Plus, Trash2, Copy } from 'lucide-react';
 import type { Policy } from '../lib/types';
 import { useMemo } from 'react';
+import { IpPartInput } from './inputs/IpPartInput';
 
 interface PolicyTableProps {
     policies: Policy[];
     setPolicies: (policies: Policy[]) => void;
     selectedIds: string[];
     setSelectedIds: (ids: string[]) => void;
+    defaultIpPrefix: string;
+    setDefaultIpPrefix: (val: string) => void;
+    defaultMask: string;
+    setDefaultMask: (val: string) => void;
 }
 
-export function PolicyTable({ policies, setPolicies, selectedIds, setSelectedIds }: PolicyTableProps) {
+export function PolicyTable({
+    policies,
+    setPolicies,
+    selectedIds,
+    setSelectedIds,
+    defaultIpPrefix,
+    setDefaultIpPrefix,
+    defaultMask,
+    setDefaultMask
+}: PolicyTableProps) {
+    // Internal state removed, using props
 
     // Global Duplicate IP Detection
     // Returns a map: { [policyId]: string[] } (list of error messages)
@@ -103,12 +118,12 @@ export function PolicyTable({ policies, setPolicies, selectedIds, setSelectedIds
     const addPolicy = () => {
         const newPolicy: Policy = {
             id: crypto.randomUUID(),
-            description: 'New Policy',
+            description: 'TCP',
             protocol: 'tcp',
             ipObjects: [],
-            portObjects: [],
+            portObjects: ['1024-65535'],
             isValid: false,
-            validationErrors: ['No IPs defined', 'No Ports defined']
+            validationErrors: ['No IPs defined']
         };
         setPolicies([newPolicy, ...policies]);
     };
@@ -138,13 +153,25 @@ export function PolicyTable({ policies, setPolicies, selectedIds, setSelectedIds
                         </div>
                     )}
                 </div>
-                <button
-                    onClick={addPolicy}
-                    className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
-                >
-                    <Plus className="h-4 w-4" />
-                    <span>Add Policy</span>
-                </button>
+
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 border-r border-gray-200 pr-4 hidden md:flex">
+                        <span className="text-sm font-medium text-gray-500 whitespace-nowrap">Default IP:</span>
+                        <IpPartInput value={defaultIpPrefix} onChange={setDefaultIpPrefix} className="scale-90 origin-right" />
+                    </div>
+                    <div className="flex items-center gap-2 border-r border-gray-200 pr-4 hidden md:flex">
+                        <span className="text-sm font-medium text-gray-500 whitespace-nowrap">Mask:</span>
+                        <IpPartInput value={defaultMask} onChange={setDefaultMask} className="scale-90 origin-right" />
+                    </div>
+
+                    <button
+                        onClick={addPolicy}
+                        className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+                    >
+                        <Plus className="h-4 w-4" />
+                        <span>Add Policy</span>
+                    </button>
+                </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -161,6 +188,7 @@ export function PolicyTable({ policies, setPolicies, selectedIds, setSelectedIds
                             </th>
                             <th className="p-4 font-medium">Policy Description</th>
                             <th className="w-24 p-4 font-medium">Protocol</th>
+                            <th className="w-16 p-4 font-medium text-center">A/B</th>
                             <th className="w-40 p-4 font-medium">IP Objects</th>
                             <th className="w-40 p-4 font-medium">Port Objects</th>
                             <th className="w-24 p-4 font-medium">Status</th>
@@ -170,7 +198,7 @@ export function PolicyTable({ policies, setPolicies, selectedIds, setSelectedIds
                     <tbody className="divide-y text-sm">
                         {policies.length === 0 ? (
                             <tr>
-                                <td colSpan={7} className="p-8 text-center text-gray-500">
+                                <td colSpan={8} className="p-8 text-center text-gray-500">
                                     No policies found. Click "Add Policy" or import a file.
                                 </td>
                             </tr>
@@ -184,6 +212,7 @@ export function PolicyTable({ policies, setPolicies, selectedIds, setSelectedIds
                                     isChecked={selectedIds.includes(policy.id)}
                                     onToggleCheck={() => toggleSelect(policy.id)}
                                     externalErrors={globalValidationErrors[policy.id]}
+                                    defaultIpPrefix={defaultIpPrefix}
                                 />
                             ))
                         )}

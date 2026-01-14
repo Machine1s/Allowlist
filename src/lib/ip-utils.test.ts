@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { splitIpRange, cidrToRange, ipToLong, longToIp, normalizeIpInput } from './ip-utils';
+import { splitIpRange, cidrToRange, ipToLong, longToIp, normalizeIpInput, calculateNextSubnet } from './ip-utils';
 
 describe('IP Utilities', () => {
     describe('Basic Conversions', () => {

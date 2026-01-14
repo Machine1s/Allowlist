@@ -136,3 +136,59 @@ export function normalizeIpInput(input: string): { start: string; end: string }[
         return [{ start: cleanInput, end: cleanInput }];
     }
 }
+
+/**
+ * Generates the mapped B-Side IP based on a prefix rule.
+ * Example: 198.120.1.1 -> 198.121.1.1
+ */
+export function getDualPlaneIp(ip: string, fromPrefix: string = '198.120', toPrefix: string = '198.121'): string {
+    // Basic string replacement for now. 
+    if (ip.startsWith(fromPrefix)) {
+        return ip.replace(fromPrefix, toPrefix);
+    }
+    return ip;
+}
+
+export function calculateNextSubnet(ip: string, maskStr: string): { fromPrefix: string; toPrefix: string } {
+    try {
+        let cidr = 0;
+        // Check if mask is like "255.255.0.0" or "16"
+        if (maskStr.includes('.')) {
+            const parts = maskStr.split('.').map(Number);
+            // Convert netmask to CIDR count
+            // Simple approach: count set bits
+            const longMask = (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3];
+            // Count 1s
+            let temp = longMask;
+            while (temp !== 0) {
+                if (temp < 0) cidr++; // Handle signed 32-bit (JS bitwise is signed)
+                temp = temp << 1;
+            }
+        } else {
+            cidr = parseInt(maskStr, 10);
+        }
+
+        if (isNaN(cidr) || cidr < 0 || cidr > 32) return { fromPrefix: '', toPrefix: '' };
+
+        const ipVal = ipToLong(ip);
+        // Increment = 2^(32 - cidr)
+        const increment = Math.pow(2, 32 - cidr);
+        const nextIpVal = (ipVal + increment) >>> 0;
+        const nextIp = longToIp(nextIpVal);
+
+        // Determine prefix string based on CIDR
+        // /8 -> 1 octet, /16 -> 2 octets, /24 -> 3 octets
+        let octets = 4;
+        if (cidr <= 8) octets = 1;
+        else if (cidr <= 16) octets = 2;
+        else if (cidr <= 24) octets = 3;
+
+        const fromParts = ip.split('.').slice(0, octets).join('.');
+        const toParts = nextIp.split('.').slice(0, octets).join('.');
+
+        return { fromPrefix: fromParts, toPrefix: toParts };
+    } catch (e) {
+        console.error("Error calculating subnet:", e);
+        return { fromPrefix: '', toPrefix: '' };
+    }
+}

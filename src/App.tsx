@@ -1,14 +1,24 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Upload, FileText, ShieldCheck } from 'lucide-react';
 import type { Policy } from './lib/types';
 import { PolicyTable } from './components/PolicyTable';
 import { parseTxtToPolicies } from './lib/parser';
 import { PreviewModal } from './components/PreviewModal';
+import { calculateNextSubnet } from './lib/ip-utils';
 
 function App() {
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showPreview, setShowPreview] = useState(false);
+
+  // Lifted state for Default IP and Mask
+  const [defaultIpPrefix, setDefaultIpPrefix] = useState("198.160.0.0");
+  const [defaultMask, setDefaultMask] = useState("255.255.0.0");
+
+  // Auto-calculate B-Side Plane default prefixes
+  const { fromPrefix: autoMapFrom, toPrefix: autoMapTo } = useMemo(() => {
+    return calculateNextSubnet(defaultIpPrefix, defaultMask);
+  }, [defaultIpPrefix, defaultMask]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -19,14 +29,10 @@ function App() {
       const text = ev.target?.result as string;
       if (text) {
         const parsed = parseTxtToPolicies(text);
-        // Append to existing or replace? Let's append to be safe, user can clear if needed.
-        // Actually for a generator, usually we start fresh or append. Let's append.
         setPolicies(prev => [...prev, ...parsed]);
-        // create a toast or alert?
       }
     };
     reader.readAsText(file);
-    // Reset input
     e.target.value = '';
   };
 
@@ -71,6 +77,10 @@ function App() {
           setPolicies={setPolicies}
           selectedIds={selectedIds}
           setSelectedIds={setSelectedIds}
+          defaultIpPrefix={defaultIpPrefix}
+          setDefaultIpPrefix={setDefaultIpPrefix}
+          defaultMask={defaultMask}
+          setDefaultMask={setDefaultMask}
         />
       </main>
 
@@ -78,6 +88,8 @@ function App() {
         isOpen={showPreview}
         onClose={() => setShowPreview(false)}
         policies={policies}
+        defaultMapFrom={autoMapFrom}
+        defaultMapTo={autoMapTo}
       />
     </div>
   );
